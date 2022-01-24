@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
+import { ITransaction } from "./interfaces/ITransaction";
 
 config(); //Read .env file lines as though they were env vars.
 
@@ -180,5 +181,54 @@ client.connect().then(() => {
         },
       });
     }
+  });
+
+  // POST /expenses
+  app.post<
+    {},
+    {},
+    {
+      userId: number;
+      description: string;
+      transactionDate: string;
+      totalBalance: number;
+      notes: string;
+      transactions: ITransaction[];
+    }
+  >("/expenses", async (req, res) => {
+    const { userId, description, transactionDate, totalBalance, transactions } =
+      req.body;
+    const notes = req.body.notes === "" ? null : req.body.notes;
+    const query1 =
+      "INSERT INTO expenses (user_id, description, transaction_date, total_balance, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *;";
+    const dbres1 = await client.query(query1, [
+      userId,
+      description,
+      transactionDate,
+      totalBalance,
+      notes,
+    ]);
+    const expenseId = dbres1.rows[0].id;
+    const dbres2 = [];
+    const query2 =
+      "INSERT INTO transactions (expense_id, lender_id, borrower_id, balance) VALUES ($1, $2, $3, $4) RETURNING *;";
+    for (const item of transactions) {
+      const subDbres = await client.query(query2, [
+        expenseId,
+        item.lenderId,
+        item.borrowerId,
+        item.balance,
+      ]);
+      dbres2.push(subDbres.rows[0]);
+    }
+    res.status(201).json({
+      status: "success",
+      message:
+        "A new expense has been created together with its corresponding transactions.",
+      data: {
+        expense: dbres1.rows,
+        transactions: dbres2,
+      },
+    });
   });
 });
