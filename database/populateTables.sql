@@ -18,3 +18,8 @@ INSERT INTO contact_list (list_owner_id, contact_id)
 VALUES (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 3), (2, 4), (2, 5),
 (3, 1), (3, 2), (3, 4), (3, 5), (4, 1), (4, 2), (4, 3), (4, 5),
 (5, 1), (5, 2), (5, 3), (5, 4);
+
+-- Add some dummy comments
+INSERT INTO comments (expense_id, user_id, comment)
+VALUES (1, 1, 'Great dinner! Hope to see you guys again soon.'),
+(1, 2, 'Thanks everyone for coming.'), (1, 3, 'Had such a great time!');
