@@ -231,4 +231,36 @@ client.connect().then(() => {
       },
     });
   });
+
+  // GET /expenses/:expenseId
+  app.get<{ expenseId: number }, {}, {}>(
+    "/expenses/:expenseId",
+    async (req, res) => {
+      const { expenseId } = req.params;
+      const query1 =
+        "SELECT expenses.*, users.name as user_name FROM expenses JOIN users ON expenses.user_id = users.id WHERE expenses.id = $1";
+      const dbres1 = await client.query(query1, [expenseId]);
+      if (dbres1.rowCount === 0) {
+        // If expense ID is not found, give an error.
+        res.status(404).json({
+          status: "failed",
+          message: "Expense ID not found.",
+        });
+      } else {
+        // If expense ID exist, query for its corresponding transactions.
+        const query2 =
+          "SELECT t1.*, users.name AS borrower_name FROM (SELECT transactions.*, users.name AS lender_name FROM transactions JOIN users ON transactions.lender_id = users.id WHERE expense_id = $1) AS t1 JOIN users on t1.borrower_id = users.id";
+        const dbres2 = await client.query(query2, [expenseId]);
+        res.status(200).json({
+          status: "success",
+          message:
+            "Returns expense details with its corresponding transactions.",
+          data: {
+            expense: dbres1.rows,
+            transactions: dbres2.rows,
+          },
+        });
+      }
+    }
+  );
 });
