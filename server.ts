@@ -145,4 +145,40 @@ client.connect().then(() => {
       });
     }
   });
+
+  // GET /friends/:userId/:friendId
+  app.get("/friends/:userId/:friendId", async (req, res) => {
+    const userId = parseInt(req.params.userId);
+    const friendId = parseInt(req.params.friendId);
+    const query1 = "SELECT * FROM users WHERE id = $1";
+    const dbres1 = await client.query(query1, [userId]);
+    const dbres2 = await client.query(query1, [friendId]);
+    if (dbres1.rowCount === 0) {
+      // If the user does not exist, give an error.
+      res.status(404).json({
+        status: "failed",
+        message: "User with the user ID provided does not exist.",
+      });
+    } else if (dbres2.rowCount === 0) {
+      // If the friend does not exist, give an error.
+      res.status(404).json({
+        status: "failed",
+        message: "Friend with the user ID provided does not exist.",
+      });
+    } else {
+      // If both user and friend exist, return expenses involving them.
+      const query2 =
+        "SELECT transactions.id, expenses.description, expenses.transaction_date,transactions.balance FROM transactions JOIN expenses ON transactions.expense_id = expenses.id WHERE lender_id = $1 AND borrower_id = $2";
+      const dbres3 = await client.query(query2, [friendId, userId]);
+      const dbres4 = await client.query(query2, [userId, friendId]);
+      res.status(200).json({
+        status: "success",
+        message: "Return how much the user owes the friend and vice versa.",
+        data: {
+          moneyBorrowed: dbres3.rows,
+          moneyLent: dbres4.rows,
+        },
+      });
+    }
+  });
 });
