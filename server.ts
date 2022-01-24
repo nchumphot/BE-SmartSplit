@@ -111,4 +111,38 @@ client.connect().then(() => {
       }
     }
   });
+
+  // GET /users/:userId
+  app.get("/users/:userId", async (req, res) => {
+    const userId = parseInt(req.params.userId);
+    const query1 = "SELECT * FROM users WHERE id = $1;";
+    const dbres1 = await client.query(query1, [userId]);
+    if (dbres1.rowCount === 0) {
+      // If a user is not found, give an error message.
+      res.status(404).json({
+        status: "failed",
+        message: "User not found.",
+      });
+    } else {
+      // If a user if found, perform relevant queries and return their results.
+      const query2 =
+        "SELECT users.* FROM contact_list JOIN users ON contact_list.contact_id = users.id WHERE list_owner_id = $1";
+      const dbres2 = await client.query(query2, [userId]);
+      const query3 =
+        "SELECT transactions.lender_id, transactions.balance, users.name AS lender_name FROM transactions JOIN users ON transactions.lender_id = users.id WHERE borrower_id = $1;";
+      const dbres3 = await client.query(query3, [userId]);
+      const query4 =
+        "SELECT transactions.borrower_id, transactions.balance, users.name AS borrower_name FROM transactions JOIN users ON transactions.borrower_id = users.id WHERE lender_id = $1;";
+      const dbres4 = await client.query(query4, [userId]);
+      res.status(200).json({
+        status: "success",
+        message: "Returns an array of friends, money borrowed and money lent.",
+        data: {
+          friends: dbres2.rows,
+          moneyBorrowed: dbres3.rows,
+          moneyLent: dbres4.rows,
+        },
+      });
+    }
+  });
 });
