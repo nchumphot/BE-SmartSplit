@@ -263,4 +263,31 @@ client.connect().then(() => {
       }
     }
   );
+
+  // GET /comments/:expenseId
+  app.get<{ expenseId: number }, {}, {}>(
+    "/comments/:expenseId",
+    async (req, res) => {
+      const { expenseId } = req.params;
+      const query1 = "SELECT * FROM expenses WHERE id = $1;";
+      const dbres1 = await client.query(query1, [expenseId]);
+      if (dbres1.rowCount === 0) {
+        // If expense ID is not found, give an error.
+        res.status(404).json({
+          status: "failed",
+          message: "Expense ID not found.",
+        });
+      } else {
+        // If expense ID exist, return its comments.
+        const query2 =
+          "SELECT comments.*, users.name FROM comments JOIN users ON comments.user_id = users.id WHERE comments.expense_id = $1;";
+        const dbres2 = await client.query(query2, [expenseId]);
+        res.status(200).json({
+          status: "success",
+          message: "Returns comments of the expense.",
+          data: dbres2.rows,
+        });
+      }
+    }
+  );
 });
