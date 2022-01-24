@@ -41,11 +41,36 @@ client.connect().then(() => {
 
   // GET /users
   app.get("/users", async (req, res) => {
-    const query = "SELECT * FROM users";
+    const query = "SELECT * FROM users;";
     const dbres = await client.query(query);
     res.status(200).json({
       status: "success",
+      message: "All the users in the database.",
       data: dbres.rows,
     });
+  });
+
+  // POST /users
+  app.post("/users", async (req, res) => {
+    const { name, email } = req.body;
+    const query1 = "SELECT * FROM users WHERE email = $1;";
+    const dbres1 = await client.query(query1, [email]);
+    if (dbres1.rowCount === 0) {
+      // If the email has not been registered, add the user with the email provided.
+      const query2 =
+        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *;";
+      const dbres2 = await client.query(query2, [name, email]);
+      res.status(201).json({
+        status: "success",
+        message: "A new user has been added.",
+        data: dbres2.rows,
+      });
+    } else {
+      // If the email has been registered, give an error message.
+      res.status(406).json({
+        status: "failed",
+        message: "A user with the email address provided already exists.",
+      });
+    }
   });
 });
