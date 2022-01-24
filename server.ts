@@ -73,4 +73,42 @@ client.connect().then(() => {
       });
     }
   });
+
+  // POST /friends/:userId
+  app.post("/friends/:userId", async (req, res) => {
+    const { email } = req.body;
+    const userId = parseInt(req.params.userId);
+    const query1 = "SELECT id FROM users WHERE email = $1;";
+    const dbres1 = await client.query(query1, [email]);
+    const friendId = dbres1.rows[0].id;
+    if (dbres1.rowCount === 0) {
+      // If the friend is not registered, give an error message.
+      res.status(404).json({
+        status: "failed",
+        message: "Cannot find a user with the email address provided.",
+      });
+    } else {
+      // If the friend is registered, check if they are already friends.
+      const query2 =
+        "SELECT * FROM contact_list WHERE list_owner_id = $1 AND contact_id = $2;";
+      const dbres2 = await client.query(query2, [userId, friendId]);
+      if (dbres2.rowCount === 0) {
+        // If they are not friends, add friend to the contact list.
+        const query3 =
+          "INSERT INTO contact_list (list_owner_id, contact_id) VALUES ($1, $2) RETURNING *;";
+        const dbres3 = await client.query(query3, [userId, friendId]);
+        res.status(201).json({
+          status: "success",
+          message: "A new friend has been added.",
+          data: dbres3.rows,
+        });
+      } else {
+        // If they are already friends, give an error message.
+        res.status(406).json({
+          status: "failed",
+          message: "The user is already in your contact list.",
+        });
+      }
+    }
+  });
 });
