@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { config } from "dotenv";
 import express from "express";
 import cors from "cors";
+import { ITransaction } from "./interfaces/ITransaction";
 
 config(); //Read .env file lines as though they were env vars.
 
@@ -145,4 +146,176 @@ client.connect().then(() => {
       });
     }
   });
+
+  // GET /friends/:userId/:friendId
+  app.get("/friends/:userId/:friendId", async (req, res) => {
+    const userId = parseInt(req.params.userId);
+    const friendId = parseInt(req.params.friendId);
+    const query1 = "SELECT * FROM users WHERE id = $1";
+    const dbres1 = await client.query(query1, [userId]);
+    const dbres2 = await client.query(query1, [friendId]);
+    if (dbres1.rowCount === 0) {
+      // If the user does not exist, give an error.
+      res.status(404).json({
+        status: "failed",
+        message: "User with the user ID provided does not exist.",
+      });
+    } else if (dbres2.rowCount === 0) {
+      // If the friend does not exist, give an error.
+      res.status(404).json({
+        status: "failed",
+        message: "Friend with the user ID provided does not exist.",
+      });
+    } else {
+      // If both user and friend exist, return expenses involving them.
+      const query2 =
+        "SELECT transactions.id, expenses.description, expenses.transaction_date,transactions.balance FROM transactions JOIN expenses ON transactions.expense_id = expenses.id WHERE lender_id = $1 AND borrower_id = $2";
+      const dbres3 = await client.query(query2, [friendId, userId]);
+      const dbres4 = await client.query(query2, [userId, friendId]);
+      res.status(200).json({
+        status: "success",
+        message: "Return how much the user owes the friend and vice versa.",
+        data: {
+          moneyBorrowed: dbres3.rows,
+          moneyLent: dbres4.rows,
+        },
+      });
+    }
+  });
+
+  // POST /expenses
+  app.post<
+    {},
+    {},
+    {
+      userId: number;
+      description: string;
+      transactionDate: string;
+      totalBalance: number;
+      notes: string;
+      transactions: ITransaction[];
+    }
+  >("/expenses", async (req, res) => {
+    const { userId, description, transactionDate, totalBalance, transactions } =
+      req.body;
+    const notes = req.body.notes === "" ? null : req.body.notes;
+    const query1 =
+      "INSERT INTO expenses (user_id, description, transaction_date, total_balance, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *;";
+    const dbres1 = await client.query(query1, [
+      userId,
+      description,
+      transactionDate,
+      totalBalance,
+      notes,
+    ]);
+    const expenseId = dbres1.rows[0].id;
+    const dbres2 = [];
+    const query2 =
+      "INSERT INTO transactions (expense_id, lender_id, borrower_id, balance) VALUES ($1, $2, $3, $4) RETURNING *;";
+    for (const item of transactions) {
+      const subDbres = await client.query(query2, [
+        expenseId,
+        item.lenderId,
+        item.borrowerId,
+        item.balance,
+      ]);
+      dbres2.push(subDbres.rows[0]);
+    }
+    res.status(201).json({
+      status: "success",
+      message:
+        "A new expense has been created together with its corresponding transactions.",
+      data: {
+        expense: dbres1.rows,
+        transactions: dbres2,
+      },
+    });
+  });
+
+  // GET /expenses/:expenseId
+  app.get<{ expenseId: number }, {}, {}>(
+    "/expenses/:expenseId",
+    async (req, res) => {
+      const { expenseId } = req.params;
+      const query1 =
+        "SELECT expenses.*, users.name as user_name FROM expenses JOIN users ON expenses.user_id = users.id WHERE expenses.id = $1";
+      const dbres1 = await client.query(query1, [expenseId]);
+      if (dbres1.rowCount === 0) {
+        // If expense ID is not found, give an error.
+        res.status(404).json({
+          status: "failed",
+          message: "Expense ID not found.",
+        });
+      } else {
+        // If expense ID exist, query for its corresponding transactions.
+        const query2 =
+          "SELECT t1.*, users.name AS borrower_name FROM (SELECT transactions.*, users.name AS lender_name FROM transactions JOIN users ON transactions.lender_id = users.id WHERE expense_id = $1) AS t1 JOIN users on t1.borrower_id = users.id";
+        const dbres2 = await client.query(query2, [expenseId]);
+        res.status(200).json({
+          status: "success",
+          message:
+            "Returns expense details with its corresponding transactions.",
+          data: {
+            expense: dbres1.rows,
+            transactions: dbres2.rows,
+          },
+        });
+      }
+    }
+  );
+
+  // GET /comments/:expenseId
+  app.get<{ expenseId: number }, {}, {}>(
+    "/comments/:expenseId",
+    async (req, res) => {
+      const { expenseId } = req.params;
+      const query1 = "SELECT * FROM expenses WHERE id = $1;";
+      const dbres1 = await client.query(query1, [expenseId]);
+      if (dbres1.rowCount === 0) {
+        // If expense ID is not found, give an error.
+        res.status(404).json({
+          status: "failed",
+          message: "Expense ID not found.",
+        });
+      } else {
+        // If expense ID exist, return its comments.
+        const query2 =
+          "SELECT comments.*, users.name FROM comments JOIN users ON comments.user_id = users.id WHERE comments.expense_id = $1;";
+        const dbres2 = await client.query(query2, [expenseId]);
+        res.status(200).json({
+          status: "success",
+          message: "Returns comments of the expense.",
+          data: dbres2.rows,
+        });
+      }
+    }
+  );
+
+  // POST /comments/:expenseId
+  app.post<{ expenseId: number }, {}, { userId: number; comment: string }>(
+    "/comments/:expenseId",
+    async (req, res) => {
+      const { expenseId } = req.params;
+      const query1 = "SELECT * FROM expenses WHERE id = $1;";
+      const dbres1 = await client.query(query1, [expenseId]);
+      if (dbres1.rowCount === 0) {
+        // If expense ID is not found, give an error.
+        res.status(404).json({
+          status: "failed",
+          message: "Expense ID not found.",
+        });
+      } else {
+        // If expense ID exist, add a comment.
+        const { userId, comment } = req.body;
+        const query2 =
+          "INSERT INTO comments (expense_id, user_id, comment) VALUES ($1, $2, $3) RETURNING *;";
+        const dbres2 = await client.query(query2, [expenseId, userId, comment]);
+        res.status(201).json({
+          status: "success",
+          message: "Comment added successfully.",
+          data: dbres2.rows,
+        });
+      }
+    }
+  );
 });
