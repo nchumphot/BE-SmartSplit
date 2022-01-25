@@ -139,6 +139,7 @@ client.connect().then(() => {
         status: "success",
         message: "Returns an array of friends, money borrowed and money lent.",
         data: {
+          info: dbres1.rows,
           friends: dbres2.rows,
           moneyBorrowed: dbres3.rows,
           moneyLent: dbres4.rows,
