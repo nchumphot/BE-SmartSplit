@@ -175,8 +175,10 @@ client.connect().then(() => {
       const dbres4 = await client.query(query2, [userId, friendId]);
       res.status(200).json({
         status: "success",
-        message: "Return how much the user owes the friend and vice versa.",
+        message:
+          "Return friend's info and how much the user owes the friend and vice versa.",
         data: {
+          info: dbres2.rows,
           moneyBorrowed: dbres3.rows,
           moneyLent: dbres4.rows,
         },
