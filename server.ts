@@ -170,7 +170,7 @@ client.connect().then(() => {
     } else {
       // If both user and friend exist, return expenses involving them.
       const query2 =
-        "SELECT transactions.id, expenses.description, expenses.transaction_date,transactions.balance FROM transactions JOIN expenses ON transactions.expense_id = expenses.id WHERE lender_id = $1 AND borrower_id = $2";
+        "SELECT transactions.id, expenses.id AS expense_id, expenses.description, expenses.transaction_date,transactions.balance FROM transactions JOIN expenses ON transactions.expense_id = expenses.id WHERE lender_id = $1 AND borrower_id = $2";
       const dbres3 = await client.query(query2, [friendId, userId]);
       const dbres4 = await client.query(query2, [userId, friendId]);
       res.status(200).json({
