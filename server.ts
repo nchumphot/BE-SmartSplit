@@ -321,4 +321,51 @@ client.connect().then(() => {
       }
     }
   );
+
+  // DELETE /comments/:commentId
+  app.delete<{ commentId: number }, {}, {}>(
+    "/comments/:commentId",
+    async (req, res) => {
+      const { commentId } = req.params;
+      const query = "DELETE FROM comments WHERE id = $1 RETURNING *;";
+      const dbres = await client.query(query, [commentId]);
+      if (dbres.rowCount === 0) {
+        res.status(404).json({
+          status: "failed",
+          message: "Comment not found.",
+        });
+      } else {
+        res.status(200).json({
+          status: "success",
+          message: "Comment deleted.",
+          data: dbres.rows,
+        });
+      }
+    }
+  );
+
+  // PATCH /comments/:commentId
+  app.patch<{ commentId: number }, {}, { comment: string }>(
+    "/comments/:commentId",
+    async (req, res) => {
+      const { commentId } = req.params;
+      const { comment } = req.body;
+      const date = new Date();
+      const query =
+        "UPDATE comments SET comment = $1, modified_date = $2 WHERE id = $3 RETURNING *;";
+      const dbres = await client.query(query, [comment, date, commentId]);
+      if (dbres.rowCount === 0) {
+        res.status(404).json({
+          status: "failed",
+          message: "Comment not found.",
+        });
+      } else {
+        res.status(200).json({
+          status: "success",
+          message: "Comment edited successfuly.",
+          data: dbres.rows,
+        });
+      }
+    }
+  );
 });
