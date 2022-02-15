@@ -283,7 +283,7 @@ client.connect().then(() => {
       } else {
         // If expense ID exist, return its comments.
         const query2 =
-          "SELECT comments.*, users.name FROM comments JOIN users ON comments.user_id = users.id WHERE comments.expense_id = $1;";
+          "SELECT comments.*, users.name FROM comments JOIN users ON comments.user_id = users.id WHERE comments.expense_id = $1 AND comments.activated = TRUE;";
         const dbres2 = await client.query(query2, [expenseId]);
         res.status(200).json({
           status: "success",
@@ -327,7 +327,7 @@ client.connect().then(() => {
     "/comments/:commentId",
     async (req, res) => {
       const { commentId } = req.params;
-      const query = "DELETE FROM comments WHERE id = $1 RETURNING *;";
+      const query = "UPDATE comments SET activated = FALSE WHERE id = $1";
       const dbres = await client.query(query, [commentId]);
       if (dbres.rowCount === 0) {
         res.status(404).json({
