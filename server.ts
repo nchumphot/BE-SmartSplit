@@ -321,4 +321,26 @@ client.connect().then(() => {
       }
     }
   );
+
+  // DELETE /comments/:commentId
+  app.delete<{ commentId: number }, {}, {}>(
+    "/comments/:commentId",
+    async (req, res) => {
+      const { commentId } = req.params;
+      const query = "DELETE FROM comments WHERE id = $1 RETURNING *;";
+      const dbres = await client.query(query, [commentId]);
+      if (dbres.rowCount === 0) {
+        res.status(404).json({
+          status: "failed",
+          message: "Comment not found.",
+        });
+      } else {
+        res.status(200).json({
+          status: "success",
+          message: "Comment deleted.",
+          data: dbres.rows,
+        });
+      }
+    }
+  );
 });
